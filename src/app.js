@@ -1,4 +1,7 @@
 const express = require("express");
+const globalErrorHandler = require("./utils/globalErrorHandler");
+const connectDB = require("./db/connectDB");
+
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -13,6 +16,14 @@ app.all("*", (req, res, next) => {
     next(error);
 });
 
-app.listen(port, () => {
-    console.log(`Assignment 12 Server is running on port ${port}`);
-});
+// error handling middleware
+app.use(globalErrorHandler);
+
+const main = async () => {
+    await connectDB();
+    app.listen(port, () => {
+        console.log(`Employee Management server is running on port ${port}`);
+    });
+};
+
+main();
