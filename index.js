@@ -3,12 +3,17 @@ const app = express();
 const cors = require("cors");
 require("dotenv").config();
 
+const stripe = require("stripe")(process.env.Stripe_Secret_Key);
 const port = process.env.PORT || 5000;
+
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
 const jwt = require("jsonwebtoken");
+
 // middleware
 app.use(cors());
 app.use(express.json());
+
 const uri = `mongodb+srv://${process.env.DB_User}:${process.env.DB_Pass}@cluster0.sw3jgjt.mongodb.net/?retryWrites=true&w=majority`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -26,6 +31,8 @@ async function run() {
         const serviceCollection = client.db("employeeDB").collection("services");
         const opinionCollection = client.db("employeeDB").collection("opinion");
         const worksheetCollection = client.db("employeeDB").collection("worksheet");
+        const paymentCollection = client.db("employeeDB").collection("payments");
+
         //jwt related api
         app.post("/jwt", async (req, res) => {
             const user = req.body;
@@ -52,8 +59,20 @@ async function run() {
             const query = { email: email };
             const user = await userCollection.findOne(query);
             const isEmployee = user?.role.toLowerCase() === "employee";
-            console.log(isEmployee);
+
             if (!isEmployee) {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+            next();
+        };
+
+        const verifyHR = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            const isHR = user?.role === "HR";
+
+            if (!isHR) {
                 return res.status(403).send({ message: "forbidden access" });
             }
             next();
@@ -79,7 +98,7 @@ async function run() {
             if (user) {
                 hr = user?.role === "HR";
             }
-            console.log(hr);
+
             res.send({ hr });
         });
 
@@ -102,9 +121,38 @@ async function run() {
         });
 
         //employee related api
-        app.get("/worksheet", verifyToken, verifyEmployee, async (req, res) => {
-            const result = await worksheetCollection.find().toArray();
+        app.get("/employees", verifyToken, verifyHR, async (req, res) => {
+            const result = await userCollection.find().toArray();
             res.send(result);
+        });
+
+        app.patch("/employees/:id", verifyToken, verifyHR, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const options = { upsert: true };
+            const fetchEmployee = req.body;
+
+            const updateUser = {
+                $set: {
+                    verified: fetchEmployee.verified,
+                },
+            };
+
+            const result = await userCollection.updateOne(filter, updateUser, options);
+            res.send(result);
+        });
+        app.get("/worksheet", async (req, res) => {
+            const userEmail = req.query.email; // Extract email from query parameters
+
+            if (userEmail) {
+                // If email is provided, fetch data based on the email
+                const result = await worksheetCollection.find({ email: userEmail }).toArray();
+                res.send(result);
+            } else {
+                // If no email is provided, fetch all worksheet data
+                const result = await worksheetCollection.find().toArray();
+                res.send(result);
+            }
         });
 
         app.post("/worksheet", verifyToken, verifyEmployee, async (req, res) => {
@@ -112,6 +160,33 @@ async function run() {
             const result = await worksheetCollection.insertOne(data);
             res.send(result);
         });
+
+        //payment intent
+
+        app.post("/create-payment-intent", async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                payment_method_types: ["card"],
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
+
+        app.get("/payments/:email", verifyToken, async (req, res) => {
+            const query = { email: req.params.email };
+            if (req.params.email !== req.decoded.email) {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+            const result = await paymentCollection.find(query).toArray();
+            res.send(result);
+        });
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
