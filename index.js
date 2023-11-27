@@ -66,6 +66,23 @@ async function run() {
         });
 
         //user related api
+        app.get("/users/hr/:email", verifyToken, async (req, res) => {
+            const email = req.params.email;
+
+            if (email !== req.decoded.email) {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            let hr = false;
+            if (user) {
+                hr = user?.role === "HR";
+            }
+            console.log(hr);
+            res.send({ hr });
+        });
+
         app.post("/users", async (req, res) => {
             const user = req.body;
             const query = { email: user.email };
