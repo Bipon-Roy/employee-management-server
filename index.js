@@ -178,13 +178,6 @@ async function run() {
             });
         });
 
-        app.post("/payments", async (req, res) => {
-            const payment = req.body;
-            const paymentResult = await paymentCollection.insertOne(payment);
-            console.log("payment info", payment);
-            res.send({ paymentResult });
-        });
-
         app.post("/payments/check", verifyToken, verifyHR, async (req, res) => {
             const { salaryOfMonth, year } = req.body;
             console.log("PaymentCheck", salaryOfMonth, year);
@@ -197,18 +190,39 @@ async function run() {
                 return res
                     .status(200)
                     .send({ success: false, error: "Payment for this month has already done" });
-            } else {
             }
+
             res.status(200).send({ success: true });
         });
 
+        app.post("/payments", async (req, res) => {
+            const payment = req.body;
+            const paymentResult = await paymentCollection.insertOne(payment);
+            console.log("payment info", payment);
+            res.send({ paymentResult });
+        });
+
         app.get("/payments/:email", verifyToken, async (req, res) => {
-            const query = { email: req.params.email };
-            if (req.params.email !== req.decoded.email) {
+            const email = req.params.email;
+            const page = parseInt(req.query.page);
+            const pageSize = parseInt(req.query.pageSize);
+
+            if (email !== req.decoded.email) {
                 return res.status(403).send({ message: "forbidden access" });
             }
-            const result = await paymentCollection.find(query).toArray();
-            res.send(result);
+
+            const skip = (page - 1) * pageSize;
+            const query = { email };
+
+            const totalPayments = await paymentCollection.countDocuments(query);
+
+            const payments = await paymentCollection
+                .find(query)
+                .skip(skip)
+                .limit(pageSize)
+                .toArray();
+
+            res.send({ totalPayments, payments });
         });
 
         // Send a ping to confirm a successful connection
