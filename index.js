@@ -156,6 +156,12 @@ async function run() {
             res.send(result);
         });
 
+        app.get("/employees/isVerified", verifyToken, verifyAdmin, async (req, res) => {
+            const result = await userCollection.find({ verified: true }).toArray();
+            console.log(result);
+            res.send(result);
+        });
+
         app.patch("/employees/:id", verifyToken, verifyHR, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
