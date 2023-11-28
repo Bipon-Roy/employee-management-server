@@ -78,6 +78,17 @@ async function run() {
             next();
         };
 
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            const isAdmin = user?.role.toLowerCase() === "admin";
+            if (!isAdmin) {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+            next();
+        };
+
         //service related api
         app.get("/services", async (req, res) => {
             const result = await serviceCollection.find().toArray();
@@ -102,6 +113,24 @@ async function run() {
             res.send({ hr });
         });
 
+        app.get("/users/admin/:email", verifyToken, async (req, res) => {
+            const email = req.params.email;
+
+            if (email !== req.decoded.email) {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            let admin = false;
+
+            if (user) {
+                admin = user?.role.toLowerCase() === "admin";
+            }
+
+            res.send({ admin });
+        });
+
         app.post("/users", async (req, res) => {
             const user = req.body;
             const query = { email: user.email };
@@ -121,6 +150,7 @@ async function run() {
         });
 
         //employee related api
+
         app.get("/employees", verifyToken, verifyHR, async (req, res) => {
             const result = await userCollection.find().toArray();
             res.send(result);
@@ -141,18 +171,34 @@ async function run() {
             const result = await userCollection.updateOne(filter, updateUser, options);
             res.send(result);
         });
-        app.get("/worksheet", async (req, res) => {
-            const userEmail = req.query.email; // Extract email from query parameters
+
+        //Worksheet
+        app.get("/worksheet", verifyToken, async (req, res, next) => {
+            const userEmail = req.query.email;
+            const employeeName = req.query.employeeName;
+            const month = req.query.month;
+
+            let filter = {};
 
             if (userEmail) {
-                // If email is provided, fetch data based on the email
-                const result = await worksheetCollection.find({ email: userEmail }).toArray();
-                res.send(result);
-            } else {
-                // If no email is provided, fetch all worksheet data
-                const result = await worksheetCollection.find().toArray();
-                res.send(result);
+                filter.email = userEmail;
             }
+
+            if (employeeName && !month) {
+                filter.employeeName = employeeName;
+            }
+
+            if (employeeName && month) {
+                filter.employeeName = employeeName;
+                filter.month = month;
+            }
+
+            if (!employeeName && month) {
+                filter.month = month;
+            }
+
+            const result = await worksheetCollection.find(filter).toArray();
+            res.send(result);
         });
 
         app.post("/worksheet", verifyToken, verifyEmployee, async (req, res) => {
@@ -178,7 +224,7 @@ async function run() {
             });
         });
 
-        app.post("/payments/check", verifyToken, verifyHR, async (req, res) => {
+        app.post("/payments/check", verifyToken, verifyHR, async (req, res, next) => {
             const { salaryOfMonth, year } = req.body;
             console.log("PaymentCheck", salaryOfMonth, year);
             const existingPayment = await paymentCollection.findOne({
@@ -187,12 +233,13 @@ async function run() {
             });
             console.log("PaymentCheck", existingPayment);
             if (existingPayment) {
-                return res
-                    .status(200)
-                    .send({ success: false, error: "Payment for this month has already done" });
+                return res.status(200).send({
+                    success: false,
+                    error: "Payment for this month has already done",
+                });
+            } else {
+                return res.status(200).send({ success: true });
             }
-
-            res.status(200).send({ success: true });
         });
 
         app.post("/payments", async (req, res) => {
@@ -218,6 +265,7 @@ async function run() {
 
             const payments = await paymentCollection
                 .find(query)
+                .sort({ salaryOfMonth: -1 })
                 .skip(skip)
                 .limit(pageSize)
                 .toArray();
