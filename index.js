@@ -178,6 +178,30 @@ async function run() {
             });
         });
 
+        app.post("/payments", async (req, res) => {
+            const payment = req.body;
+            const paymentResult = await paymentCollection.insertOne(payment);
+            console.log("payment info", payment);
+            res.send({ paymentResult });
+        });
+
+        app.post("/payments/check", verifyToken, verifyHR, async (req, res) => {
+            const { salaryOfMonth, year } = req.body;
+            console.log("PaymentCheck", salaryOfMonth, year);
+            const existingPayment = await paymentCollection.findOne({
+                salaryOfMonth,
+                year,
+            });
+            console.log("PaymentCheck", existingPayment);
+            if (existingPayment) {
+                return res
+                    .status(200)
+                    .send({ success: false, error: "Payment for this month has already done" });
+            } else {
+            }
+            res.status(200).send({ success: true });
+        });
+
         app.get("/payments/:email", verifyToken, async (req, res) => {
             const query = { email: req.params.email };
             if (req.params.email !== req.decoded.email) {
