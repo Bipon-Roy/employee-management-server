@@ -156,21 +156,30 @@ async function run() {
             res.send(result);
         });
 
+        app.get("/employeeDetails/:id", async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await userCollection.find(query).toArray();
+            res.send(result);
+        });
+
         app.get("/employees/isVerified", verifyToken, verifyAdmin, async (req, res) => {
             const result = await userCollection.find({ verified: true }).toArray();
             res.send(result);
         });
 
-        app.get("/employees/isFired", async (req, res) => {
-            const result = await userCollection.find({ isFired: "Fired" }).toArray();
+        app.post("/employees/isFired", async (req, res) => {
+            const { email } = req.body;
+            const isFired = await userCollection.findOne({
+                email,
+                isFired: "Fired",
+            });
 
-            console.log("Find Fired", result);
-            if (result) {
-                console.log("Fired", result);
-                return res.status(200).send({
-                    success: false,
-                    error: "User is Fired",
-                });
+            console.log("Find Fired", isFired);
+
+            if (isFired) {
+                console.log("Fired", isFired);
+                return res.status(200).send({ success: false, error: "User is Fired" });
             } else {
                 return res.status(200).send({ success: true });
             }
