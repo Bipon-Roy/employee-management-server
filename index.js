@@ -335,6 +335,43 @@ async function run() {
             res.send({ totalPayments, payments });
         });
 
+        //chart related api
+        app.get("/user-payment-stat/:userId", async (req, res) => {
+            const userId = req.params.userId;
+
+            const result = await userCollection
+                .aggregate([
+                    {
+                        $match: { _id: new ObjectId(userId) }, // Match the user with the specified userId
+                    },
+                    {
+                        $lookup: {
+                            from: "payments",
+                            localField: "email",
+                            foreignField: "email",
+                            as: "paymentHistory",
+                        },
+                    },
+                    {
+                        $unwind: "$paymentHistory",
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            name: 1,
+                            email: 1,
+                            salary: 1,
+                            date: "$paymentHistory.date",
+                            month: "$paymentHistory.salaryOfMonth",
+                            transactionId: "$paymentHistory.transactionId",
+                        },
+                    },
+                ])
+                .toArray();
+
+            res.send(result);
+        });
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
