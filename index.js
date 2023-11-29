@@ -158,7 +158,53 @@ async function run() {
 
         app.get("/employees/isVerified", verifyToken, verifyAdmin, async (req, res) => {
             const result = await userCollection.find({ verified: true }).toArray();
-            console.log(result);
+            res.send(result);
+        });
+
+        app.get("/employees/isFired", async (req, res) => {
+            const result = await userCollection.find({ isFired: "Fired" }).toArray();
+
+            console.log("Find Fired", result);
+            if (result) {
+                console.log("Fired", result);
+                return res.status(200).send({
+                    success: false,
+                    error: "User is Fired",
+                });
+            } else {
+                return res.status(200).send({ success: true });
+            }
+        });
+
+        app.patch("/employees/promotion/:id", verifyToken, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const options = { upsert: true };
+            const fetchEmployee = req.body;
+
+            const updateUser = {
+                $set: {
+                    role: fetchEmployee.role,
+                },
+            };
+
+            const result = await userCollection.updateOne(filter, updateUser, options);
+            res.send(result);
+        });
+
+        app.patch("/employees/fired/:id", verifyToken, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const options = { upsert: true };
+            const fetchEmployee = req.body;
+
+            const updateUser = {
+                $set: {
+                    isFired: fetchEmployee.isFired,
+                },
+            };
+
+            const result = await userCollection.updateOne(filter, updateUser, options);
             res.send(result);
         });
 
@@ -231,9 +277,10 @@ async function run() {
         });
 
         app.post("/payments/check", verifyToken, verifyHR, async (req, res, next) => {
-            const { salaryOfMonth, year } = req.body;
+            const { salaryOfMonth, year, email } = req.body;
             console.log("PaymentCheck", salaryOfMonth, year);
             const existingPayment = await paymentCollection.findOne({
+                email,
                 salaryOfMonth,
                 year,
             });
@@ -271,7 +318,7 @@ async function run() {
 
             const payments = await paymentCollection
                 .find(query)
-                .sort({ salaryOfMonth: -1 })
+                .sort({ salaryOfMonth: 1 })
                 .skip(skip)
                 .limit(pageSize)
                 .toArray();
