@@ -175,10 +175,7 @@ async function run() {
                 isFired: "Fired",
             });
 
-            console.log("Find Fired", isFired);
-
             if (isFired) {
-                console.log("Fired", isFired);
                 return res.status(200).send({ success: false, error: "User is Fired" });
             } else {
                 return res.status(200).send({ success: true });
@@ -287,13 +284,12 @@ async function run() {
 
         app.post("/payments/check", verifyToken, verifyHR, async (req, res, next) => {
             const { salaryOfMonth, year, email } = req.body;
-            console.log("PaymentCheck", salaryOfMonth, year);
             const existingPayment = await paymentCollection.findOne({
                 email,
                 salaryOfMonth,
                 year,
             });
-            console.log("PaymentCheck", existingPayment);
+
             if (existingPayment) {
                 return res.status(200).send({
                     success: false,
@@ -304,7 +300,7 @@ async function run() {
             }
         });
 
-        app.post("/payments", async (req, res) => {
+        app.post("/payments", verifyToken, verifyHR, async (req, res) => {
             const payment = req.body;
             const paymentResult = await paymentCollection.insertOne(payment);
             console.log("payment info", payment);
