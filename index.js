@@ -142,6 +142,13 @@ async function run() {
             res.send(result);
         });
 
+        app.delete("/users/email", verifyToken, async (req, res) => {
+            const userEmail = req.query.email;
+            const query = { email: userEmail };
+            const result = await userCollection.deleteOne(query);
+            res.send(result);
+        });
+
         //opinion related api
         app.post("/opinion", async (req, res) => {
             const message = req.body;
