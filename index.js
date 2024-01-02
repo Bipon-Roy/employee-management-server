@@ -142,9 +142,33 @@ async function run() {
             res.send(result);
         });
 
-        app.delete("/users/email", verifyToken, async (req, res) => {
+        app.get("/user", verifyToken, async (req, res) => {
             const userEmail = req.query.email;
             const query = { email: userEmail };
+            const result = await userCollection.findOne(query);
+            res.send(result);
+        });
+
+        app.patch("/user/:id", verifyToken, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const options = { upsert: true };
+            const fetchInfo = req.body;
+
+            const updatedUser = {
+                $set: {
+                    seats: fetchInfo.seats,
+                },
+            };
+
+            const result = await roomCollection.updateOne(filter, updatedUser, options);
+
+            res.send(result);
+        });
+
+        app.delete("/user/:id", verifyToken, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
             const result = await userCollection.deleteOne(query);
             res.send(result);
         });
