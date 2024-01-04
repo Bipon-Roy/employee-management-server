@@ -154,14 +154,16 @@ async function run() {
             const filter = { _id: new ObjectId(id) };
             const options = { upsert: true };
             const fetchInfo = req.body;
-
             const updatedUser = {
                 $set: {
-                    seats: fetchInfo.seats,
+                    name: fetchInfo.name,
+                    account_no: fetchInfo.account_no,
+                    phone: fetchInfo.phone,
+                    address: fetchInfo.address,
                 },
             };
 
-            const result = await roomCollection.updateOne(filter, updatedUser, options);
+            const result = await userCollection.updateOne(filter, updatedUser, options);
 
             res.send(result);
         });
